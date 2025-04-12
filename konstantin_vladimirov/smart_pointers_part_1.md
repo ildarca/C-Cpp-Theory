@@ -87,6 +87,73 @@ template <typename T> auto_ptr {
  public:
   auto_ptr(T* ptr = nullptr) : ptr_(ptr) {}
   ~auto_ptr() { delete ptr; }
-
+  auto_ptr(auto_ptr& rhs) : ptr_(rhs.ptr_) { rhs.ptr_ = nullptr; }
+  auto_ptr& operator=(auto_ptr rhs) {
+    swap(*this, rhs);
+    return this;
+  }
+  T operator*() const { return *ptr_; }
 };
 ```
+К чему может быть привести тихое копирование?
+
+# Проблема: слишком тихое копирование
+
+```cpp
+template <typename T>
+class Brittle {
+  T working_, reserve_;
+ public:
+  Brittle(T val) : working_(val) reserve_(working_) {}
+  //  работа с working_
+};
+```
+
+Что будет если сделать?
+```
+Brittle<auto_ptr<int>> b(auto_ptr<int>(new int(42)));
+```
+`working_` опустеет и будет `UB`.
+
+Главная проблема в том, что на месте `Brittle` может оказаться любой `stl` `container`. И это идеома `COAP(container of auto_ptr)`. За счет полезного `auto_ptr`, мы получали возможность разрушать внешне внутренние контексты контейнеров.
+Что делать?
+
+# Использовать перемещение
+В С++11 был добавлен `unique_ptr`. Теперь при передаче ресурсов использовалось перемещение.
+```cpp
+template <typename T>
+class unique_ptr {
+  T* ptr_;
+ 
+ public:
+  unique_ptr(T* ptr = nullptr) : ptr_(ptr) {}
+
+  unique_ptr(unique_ptr&& rhs) : ptr_(rhs.ptr_) {
+    rhs.ptr_ = nullptr;
+  }
+
+  unique_ptr& operator=(unique_ptr&& rhs) {
+    swap(*this, rhs); 
+    return *this;
+  }
+
+  unique_ptr(unique_ptr& rhs) = delete;
+  unique_ptr& operator=(unique_ptr& rhs) = delete;
+};
+```
+
+Теперь все супер и мы не будем тихо копировать, а будем явно перемещать. Вернемся к нашему первому примеру:
+```cpp
+int foo(int x, double y) {
+  unique_ptr<MyRes> ptr(new MyRes(x, y));  // захват ресурсов
+  // ...
+  if (/* какое-то условие */) {
+    bar(move(ptr));  // передача владения
+  }
+  // ...
+
+  return 0;  // очистка памяти
+}
+```
+
+В С++14 был добавлен `make_unique` 

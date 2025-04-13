@@ -1,17 +1,17 @@
 #include <iostream>
 
-struct Base() {
+struct Base {
   int x;
   void f() {}
 };
 
-struct Derived {
+struct Derived : Base {
   int y;
   void g() {}
 };
 
 int main() {
   Derived d;
-  d.x;
+  std::cout << d.x;
   return 0;
 }

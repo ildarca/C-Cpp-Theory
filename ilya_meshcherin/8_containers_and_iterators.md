@@ -296,13 +296,13 @@ stack {};
 5. `ContiguousIterator` - появился с C++17. Обладает предыдущими свойствами, а так же гарантирует, что он эквивалентен указателю. Другими словами вместо такой конструкции: `*( &(*it) + n)` можно использовать `*(it + n)`. (`std::vector`, `std::array`, `T*`). 
 
 Давайте напишем цикл `for` который обходит элементы `std::set<int> s` используя итератор:
-```
+```cpp
 for ( std::set<int>::iterator it = s.begin(); it < s.end(); ++it) {
   // работаем с *it
 }
 ```
 В С++11 добавлен `range based for`, который сокращает способ такой записи:
-```
+```cpp
 for (int x: s) {
   // работаем с x
 }
@@ -314,7 +314,7 @@ for (int x: s) {
 
 Какое практическое применение есть у итераторов?  
 Они используются во всех стандартных алгоритмах. И каждый алгоритм в описании сигнатуры требует наличия конкретного итератора. Например, `std::sort` требует чтобы итератор был `RandomAccessIterator`:
-```
+```cpp
 template< class RandomIt >
 void sort( RandomIt first, RandomIt last );
 ```
@@ -322,7 +322,7 @@ void sort( RandomIt first, RandomIt last );
 Подробнее посмотреть алгоритмы и используемые итераторы можно здесь: https://en.cppreference.com/w/cpp/algorithm
 
 Давайте разберемся как из под итератора достать элементы и как понять его тип. Допустим пишем какой-то алгоритм:
-```
+```cpp
 template <typename InputIterator>
 void find_most_often_number(InputIterator begin, InputIterator end) {
 
@@ -331,7 +331,7 @@ void find_most_often_number(InputIterator begin, InputIterator end) {
 Мы можем попробовать получить тип элемента который лежит под итератором таким образом: `auto x = *begin;`. Но таким способом мы можем получить совсем не тот тип. Например, в случае с `std::vector<bool>` мы получим `BitReference`. Поймем как правильно назвать тип под итератором. Здесь нам помогут существующие мета-функции, а именно `std::iterator_traits` - он умеет возвращать тип который лежит под итератором. Использовать так:`std::iterator_traits<InputIterator>::value_type`, и не забудем пометить его с `typename`. Подробно про возможности `std::iterator_traits`: https://en.cppreference.com/w/cpp/iterator/iterator_traits
 
 Весь код на данный момент:
-```
+```cpp
 template <typename InputIterator>
 void find_most_often_number(InputIterator begin, InputIterator end) {
   typename std::iterator_traits<InputIterator>::value_type x = *begin;
@@ -339,7 +339,7 @@ void find_most_often_number(InputIterator begin, InputIterator end) {
 ```
 Напишем функцию поиска расстояния между двумя итераторами:
 Для этого воспользуем `std::is_base_of_v` - которая проверяет является ли первый итератор базой другого. Мы проверим является ли у нас итератор типа `RandomAccessIterator`, если да, то он поддерживает вычитание итераторов, если же нет, то мы просто циклом посчитаем расстояние:
-```
+```cpp
 template <typename Iterator>
 typename std::iterator_traits<Iterator>::defference_type
 distance(Iterator first, Iterator last) {
@@ -365,7 +365,7 @@ distance(Iterator first, Iterator last) {
 6. `operator++()`, `operator++(int)`;
 7. `operator ->`;
 
-```
+```cpp
 template <typename T>
 class vector {
   T* arr_;
@@ -414,19 +414,19 @@ class vector {
 В таком случае нам надо переписать тот же самый код добавив `const`. Но мы против копипаста. Воспользуемся тернарным оператором из мира шаблонов `std::conditional_t<F, H, G>` и `using`-ом. 
 
 Итератор переименуем в `base_iterator`.  
-```
+```cpp
 typename <bool IsConst>
 class base_iterator {};
 ```
 Определим типы внутри итератора:
-```
+```cpp
 using pointer_type = std::conditional_t<IsConst, const T*, T*>;
 using reference_type = std::conditional_t<IsConst, const T&, T&>;
 using value_type = T;
 ```
 
 Теперь мы можем удобно расписать типы для уже существующих элементов:
-```
+```cpp
 typename <bool IsConst>
 class base_iterator {
 public:
@@ -459,13 +459,13 @@ public:
 ```
 
 И в самом векторе определим типы итераторов:
-```
+```cpp
 using iterator = base_iterator<false>;
 using const_iterator = base_iterator<true>;
 ```
 
 Для константного вектора тоже должны работать операторы `begin`, `end`.
-```
+```cpp
 const_iterator begin() const {
   return {arr_};
 }
@@ -476,7 +476,7 @@ const_iterator end() const {
 ```
 
 Нам так же надо определить `cbegin`, `cend`, которые дают константные итераторы и не для константных контейнеров:
-```
+```cpp
 const_iterator cbegin() const {
   return {arr_};
 }
@@ -495,7 +495,7 @@ using const_reverse_iterator = std::reverse_iterator<const_iterator>
 Методы `rbegin`, `rend`, `rcend`, `rcbegin` сами реализуются и их писать не нужно.
 
 Итоговый код:
-```
+```cpp
 template <typename T>
 class vector {
   T* arr_;
@@ -564,8 +564,44 @@ public:
 };
 ```
 
-Инвалидируется ли итератор?
+Поправка!
+1. В методах вектора `begin` и `end` мы создаем итератор от указателя. Но конструктор от указателя у итератора приватный. Поэтому нам нужно дать доступ вектору к этому конструктору объявив его другом. 
+```cpp
+typename <bool IsConst>
+class base_iterator {
+
+  // ... 
+
+ private:
+  pointer_type ptr;
+  base_iterator(T* ptr): ptr(ptr) {}
+  friend vector<T>;
+
+  // ...
+
+};
 ```
+
+2. Нужно добавить приведение типа из не константного итератора в константный, т.е. из `base_iterator<false>` в  `base_iterator<true>` 
+```cpp
+typename <bool IsConst>
+class base_iterator {
+
+  // ... 
+
+ public:
+  base_iterator(const base_iterator&) = default;
+
+  // ...
+
+  operator base_iterator<true>() {
+    return {ptr};
+  }
+};
+```
+
+Инвалидируется ли итератор?
+```cpp
 std::vector<int> v(10);
 std::vector<int>::iterator x = v.begin() + 5;
 v.push_back(1);
@@ -575,7 +611,7 @@ v.push_back(1);
 ## $ 8.5 Output iterators and stream iterators.
 
 В стандартной библиотеке есть множество разных алгоритмов. Например, `std::copy()`. Он копирует из одного места в другое элементы, `push_back`он вызывать не умеет, а только обращается через указатели:
-```
+```cpp
 int main() {
   int a[] = {1, 2, 3, 4, 5};
   std::vector<int> v;
@@ -583,7 +619,7 @@ int main() {
 }
 ```
 Это приведет к `UB` ведь мы будем писать вне контейнера. Для решения этой проблемы изобрели `std::back_insert_iterator`. Это `OutputIterator` который гарантирует отсутствие записи в не свою память. Ну и решение нашей проблемы:
-```
+```cpp
 int main() {
   int a[] = {1, 2, 3, 4, 5};
   std::vector<int> v;
@@ -592,7 +628,7 @@ int main() {
 ```
 
 Теперь попробуем сами его реализовать:
-```
+```cpp
 template <typename Container>
 class back_insert_iterator {
   Container& container;
@@ -616,7 +652,7 @@ public:
 };
 ```
 Обычно `back_insert_iterator` писать грамоздко поэтому существует функция`back_insert` для более короткой записи, реализуем:
-```
+```cpp
 template <typename Container>
 back_insert_iterator<Container> back_insert(Container& container) {
   return {container};

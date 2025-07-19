@@ -166,13 +166,13 @@ list()
 `std::map` -  упорядоченный ассоциативный массив.
 В основе лежит красно-черное дерево.
 Операции:
-`pair<iterator, bool> insert(const pair<Key,Value>&);` 
-`size_t erase(Key);` 
-`Value& at(Key);` 
-`const Value& at(Key) const;` 
-`Value& operator[](Key);` 
-`iterator erase(iterator);` 
-`iterator find(Key);` 
+`pair<iterator, bool> insert(const pair<Key,Value>&);`  
+`size_t erase(Key);`  
+`Value& at(Key);`  
+`const Value& at(Key) const;`  
+`Value& operator[](Key);`  
+`iterator erase(iterator);`  
+`iterator find(Key);`  
 
 Все эти функции работают за `O(log n)`
 

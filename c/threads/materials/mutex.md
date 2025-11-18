@@ -2,6 +2,14 @@
 
 <details>
 <summary>
+  pthread_mutex_trylock
+</summary>
+  
+
+</details>
+
+<details>
+<summary>
 Рекурсивный мьютекс
 </summary>
 
